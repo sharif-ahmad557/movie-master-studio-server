@@ -33,6 +33,8 @@ run().catch(console.dir);
 
 // Get all movies
 app.get("/movies", async (req, res) => {
+  // const moviefield = { title: 1, director: 1, rating: 1 }; 
+  // const cursor = moviesCollection.find().sort({ rating: -1 }).skip(5).limit(2).project(moviefield);
   const cursor = moviesCollection.find();
   const result = await cursor.toArray();
   res.send(result);
