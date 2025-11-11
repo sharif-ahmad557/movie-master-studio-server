@@ -61,16 +61,22 @@ app.post("/movies", async (req, res) => {
 });
 
 // Update a movie
+
 app.patch("/movies/:id", async (req, res) => {
   const id = req.params.id;
   const updatedMovie = req.body;
+
+  delete updatedMovie._id;
+  delete updatedMovie.email;
+
   const query = { _id: new ObjectId(id) };
-  const update = {
-    $set: { title: updatedMovie.title, director: updatedMovie.director },
-  };
+  const update = { $set: updatedMovie };
+
   const result = await moviesCollection.updateOne(query, update);
   res.send(result);
 });
+
+
 
 // Delete a movie
 app.delete("/movies/:id", async (req, res) => {
