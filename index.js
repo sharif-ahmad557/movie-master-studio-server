@@ -35,15 +35,33 @@ run().catch(console.dir);
 
 /* ============ Movies Routes ============== */
 
-// Get all movies
+// Get all movies with optional filtering
 app.get("/movies", async (req, res) => {
-  const email = req.query.email;
-  let query = {};
-  if (email) query.email = email;
+  try {
+    const { genre, minRating, maxRating } = req.query;
 
-  const cursor = moviesCollection.find(query);
-  const result = await cursor.toArray();
-  res.send(result);
+    let query = {};
+
+    // Genre filter
+    if (genre) {
+      const genresArray = genre.split(","); // যেমন: "Action,Comedy"
+      query.genre = { $in: genresArray };
+    }
+
+    // Rating filter
+    if (minRating || maxRating) {
+      query.rating = {};
+      if (minRating) query.rating.$gte = parseFloat(minRating);
+      if (maxRating) query.rating.$lte = parseFloat(maxRating);
+    }
+
+    const cursor = moviesCollection.find(query);
+    const result = await cursor.toArray();
+    res.send(result);
+  } catch (err) {
+    console.error("Error fetching movies:", err);
+    res.status(500).send({ message: "Server error" });
+  }
 });
 
 // Get single movie by ID
@@ -61,7 +79,6 @@ app.post("/movies", async (req, res) => {
 });
 
 // Update a movie
-
 app.patch("/movies/:id", async (req, res) => {
   const id = req.params.id;
   const updatedMovie = req.body;
@@ -75,8 +92,6 @@ app.patch("/movies/:id", async (req, res) => {
   const result = await moviesCollection.updateOne(query, update);
   res.send(result);
 });
-
-
 
 // Delete a movie
 app.delete("/movies/:id", async (req, res) => {
