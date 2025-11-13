@@ -27,7 +27,7 @@ let usersCollection;
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const db = client.db("movieMasterStudio");
     moviesCollection = db.collection("movies");
     usersCollection = db.collection("users");
@@ -97,7 +97,7 @@ app.post("/movies", async (req, res) => {
   }
 });
 
-// ✅ Update movie
+//  Update movie
 app.patch("/movies/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -114,7 +114,7 @@ app.patch("/movies/:id", async (req, res) => {
   }
 });
 
-// ✅ Delete movie
+//  Delete movie
 app.delete("/movies/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -127,9 +127,9 @@ app.delete("/movies/:id", async (req, res) => {
   }
 });
 
-/* ========================= 👤 USERS ROUTES ========================= */
+/* =========================  USERS ROUTES ========================= */
 
-// ✅ Get all users
+//  Get all users
 app.get("/users", async (req, res) => {
   try {
     const email = req.query.email;
@@ -143,7 +143,7 @@ app.get("/users", async (req, res) => {
   }
 });
 
-// ✅ Get single user
+//  Get single user
 app.get("/users/:id", async (req, res) => {
   try {
     const user = await usersCollection.findOne({
@@ -155,7 +155,7 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
-// ✅ Add user
+//  Add user
 app.post("/users", async (req, res) => {
   try {
     const result = await usersCollection.insertOne(req.body);
@@ -165,7 +165,7 @@ app.post("/users", async (req, res) => {
   }
 });
 
-// ✅ Update user
+//  Update user
 app.patch("/users/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -179,7 +179,7 @@ app.patch("/users/:id", async (req, res) => {
   }
 });
 
-// ✅ Delete user
+//  Delete user
 app.delete("/users/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -192,7 +192,7 @@ app.delete("/users/:id", async (req, res) => {
   }
 });
 
-/* ========================= 🏠 ROOT ========================= */
+/* =========================  ROOT ========================= */
 app.get("/", (req, res) => {
   res.send(" Movie Master Studio API is running...");
 });
