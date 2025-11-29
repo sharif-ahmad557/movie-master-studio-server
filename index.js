@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -9,11 +10,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection URI
 const uri = process.env.MONGO_URI;
 
-
-// MongoDB Client
+// MongoDB Client কনফিগারেশন
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -27,45 +26,60 @@ let usersCollection;
 
 async function run() {
   try {
-    // await client.connect();
-    const db = client.db("movieMasterStudio");
+    // ১. প্রথমে কানেকশন তৈরি করা
+    await client.connect();
+
+    // ২. ডাটাবেস এবং কালেকশন সিলেক্ট করা
+    const db = client.db("MovieMasterStudio");
     moviesCollection = db.collection("movies");
     usersCollection = db.collection("users");
-    console.log("✅ Connected to MongoDB successfully!");
+
+    console.log("✅ Connected to MongoDB (MovieMasterStudio) successfully!");
+
+    // ৩. ডাটাবেস কানেক্ট হওয়ার পরেই সার্ভার চালু হবে
+    app.listen(port, () => {
+      console.log(`🚀 Server is running on port ${port}`);
+    });
   } catch (error) {
     console.error("❌ MongoDB connection failed:", error);
   }
 }
-run();
+// রান ফাংশন কল করা
+run().catch(console.dir);
 
-/* ========================= 🎬 MOVIES ROUTES ========================= */
+// ==================
+//   MOVIES ROUTES
+// ==================
 
-// ✅ Get all movies (with optional filtering)
+// সব মুভি পাওয়া (Search, Filter সহ)
 app.get("/movies", async (req, res) => {
   try {
-    const { genre, minRating, maxRating, email } = req.query;
+    const { search, genre, minRating, maxRating, email } = req.query;
     const query = {};
 
-    // 🔹 Filter by email (optional)
+    // ইমেইল দিয়ে ফিল্টার
     if (email) query.email = email;
 
-    // 🔹 Genre filter (works for both array & string)
+    // সার্চ ফাংশনালিটি
+    if (search) {
+      query.title = { $regex: search, $options: "i" };
+    }
+
+    // জেনরা ফিল্টার (Array বা String উভয়ের জন্য কাজ করবে)
     if (genre) {
       const genreArray = genre.split(",").map((g) => g.trim());
       query.$or = [
-        { genre: { $in: genreArray } }, // যদি array হয়
-        { genre: { $regex: genreArray.join("|"), $options: "i" } }, // যদি string হয়
+        { genre: { $in: genreArray } },
+        { genre: { $regex: genreArray.join("|"), $options: "i" } },
       ];
     }
 
-    // 🔹 Rating filter
+    // রেটিং ফিল্টার
     if (minRating || maxRating) {
       query.rating = {};
       if (minRating) query.rating.$gte = parseFloat(minRating);
       if (maxRating) query.rating.$lte = parseFloat(maxRating);
     }
-
-    console.log("🔍 Query:", query);
 
     const movies = await moviesCollection.find(query).toArray();
     res.send(movies);
@@ -75,34 +89,48 @@ app.get("/movies", async (req, res) => {
   }
 });
 
-// ✅ Get single movie by ID
+// নির্দিষ্ট একটি মুভি পাওয়া
 app.get("/movies/:id", async (req, res) => {
   try {
-    const movie = await moviesCollection.findOne({
-      _id: new ObjectId(req.params.id),
-    });
+    const id = req.params.id;
+    // ভুল ID চেক
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid Movie ID" });
+    }
+    const movie = await moviesCollection.findOne({ _id: new ObjectId(id) });
     res.send(movie);
   } catch (error) {
     res.status(500).send({ message: "Error fetching movie" });
   }
 });
 
-// ✅ Add new movie
+// নতুন মুভি যোগ করা
 app.post("/movies", async (req, res) => {
   try {
-    const result = await moviesCollection.insertOne(req.body);
+    const newMovie = req.body;
+    // ডাটা টাইপ ফিক্স করা
+    newMovie.rating = Number(newMovie.rating);
+    newMovie.duration = Number(newMovie.duration);
+    newMovie.releaseYear = Number(newMovie.releaseYear);
+    newMovie.createdAt = new Date(); // সর্টিংয়ের জন্য সময় রাখা হলো
+
+    const result = await moviesCollection.insertOne(newMovie);
     res.send(result);
   } catch (error) {
     res.status(500).send({ message: "Error adding movie" });
   }
 });
 
-//  Update movie
+// মুভি আপডেট করা
 app.patch("/movies/:id", async (req, res) => {
   try {
     const id = req.params.id;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid Movie ID" });
+    }
+
     const updatedMovie = req.body;
-    delete updatedMovie._id;
+    delete updatedMovie._id; // _id আপডেট করা যায় না, তাই রিমুভ করা হলো
 
     const query = { _id: new ObjectId(id) };
     const update = { $set: updatedMovie };
@@ -114,22 +142,24 @@ app.patch("/movies/:id", async (req, res) => {
   }
 });
 
-//  Delete movie
+// মুভি ডিলিট করা
 app.delete("/movies/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const result = await moviesCollection.deleteOne({
-      _id: new ObjectId(id),
-    });
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid Movie ID" });
+    }
+    const result = await moviesCollection.deleteOne({ _id: new ObjectId(id) });
     res.send(result);
   } catch (error) {
     res.status(500).send({ message: "Error deleting movie" });
   }
 });
 
-/* =========================  USERS ROUTES ========================= */
+// ==================
+//   USERS ROUTES
+// ==================
 
-//  Get all users
 app.get("/users", async (req, res) => {
   try {
     const email = req.query.email;
@@ -143,32 +173,42 @@ app.get("/users", async (req, res) => {
   }
 });
 
-//  Get single user
 app.get("/users/:id", async (req, res) => {
   try {
-    const user = await usersCollection.findOne({
-      _id: new ObjectId(req.params.id),
-    });
+    const id = req.params.id;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid User ID" });
+    }
+    const user = await usersCollection.findOne({ _id: new ObjectId(id) });
     res.send(user);
   } catch (error) {
     res.status(500).send({ message: "Error fetching user" });
   }
 });
 
-//  Add user
 app.post("/users", async (req, res) => {
   try {
-    const result = await usersCollection.insertOne(req.body);
+    const user = req.body;
+    const query = { email: user.email };
+    const existingUser = await usersCollection.findOne(query);
+
+    if (existingUser) {
+      return res.send({ message: "User already exists", insertedId: null });
+    }
+
+    const result = await usersCollection.insertOne(user);
     res.send(result);
   } catch (error) {
     res.status(500).send({ message: "Error adding user" });
   }
 });
 
-//  Update user
 app.patch("/users/:id", async (req, res) => {
   try {
     const id = req.params.id;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid User ID" });
+    }
     const updatedUser = req.body;
     const query = { _id: new ObjectId(id) };
     const update = { $set: updatedUser };
@@ -179,24 +219,20 @@ app.patch("/users/:id", async (req, res) => {
   }
 });
 
-//  Delete user
 app.delete("/users/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const result = await usersCollection.deleteOne({
-      _id: new ObjectId(id),
-    });
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid User ID" });
+    }
+    const result = await usersCollection.deleteOne({ _id: new ObjectId(id) });
     res.send(result);
   } catch (error) {
     res.status(500).send({ message: "Error deleting user" });
   }
 });
 
-/* =========================  ROOT ========================= */
+// রুট রাউট
 app.get("/", (req, res) => {
-  res.send(" Movie Master Studio API is running...");
-});
-
-app.listen(port, () => {
-  console.log(`🚀 Smart Server is running on port ${port}`);
+  res.send("🎬 Movie Master Studio API is running...");
 });
